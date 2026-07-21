@@ -63,11 +63,24 @@ def _api(method, path, params):
         sys.exit(f"IG API error {e.code}: {e.read().decode()}")
 
 
-def create_container(uid, tok, video_url, caption):
+def create_container(uid, tok, video_url, caption, thumb_offset=0):
+    """thumb_offset = milliseconds into the video to freeze as the Reel cover.
+
+    Defaults to 0 (frame 1) deliberately: the editing template puts the hook card
+    FULLY VISIBLE ON FRAME 1 (editing-instructions v1.4 section 9) precisely so the
+    opening frame doubles as the cover, and tiktok_publish.py already pins the same
+    thing via video_cover_timestamp_ms:0. Left unset, Instagram auto-picks an
+    arbitrary frame — which is why auto-published Reels were getting mid-sentence,
+    mid-blink covers with no hook card.
+
+    Set a non-zero value only for a video whose frame 1 genuinely isn't the best
+    cover. Note IG cannot change a cover after publishing, so this is one-shot.
+    """
     return _api("POST", f"{uid}/media", {
         "media_type": "REELS",
         "video_url": video_url,
         "caption": caption,
+        "thumb_offset": str(int(thumb_offset)),
         "access_token": tok,
     })["id"]
 
@@ -119,6 +132,9 @@ def main():
     ap.add_argument("--video-url", required=True, help="PUBLIC url of the mp4 (9:16, <=90s).")
     ap.add_argument("--caption", default="")
     ap.add_argument("--caption-file", help="Read caption as UTF-8 from a file (for non-ASCII).")
+    ap.add_argument("--thumb-offset", type=int, default=0, metavar="MS",
+                    help="Cover frame, ms into the video. Default 0 = the frame-1 "
+                         "hook card (matches TikTok). Only override if frame 1 is bad.")
     ap.add_argument("--dry-run", action="store_true", help="Validate + print, publish nothing.")
     ap.add_argument("--no-publish", action="store_true",
                     help="Create + process the container to prove the pipeline, but do NOT post it.")
@@ -133,11 +149,13 @@ def main():
     print(f"-> IG user   : {uid}")
     print(f"   video_url : {a.video_url}")
     print(f"   caption   : {caption[:70]}{'...' if len(caption) > 70 else ''}")
+    print(f"   cover     : {a.thumb_offset} ms"
+          f"{' (frame-1 hook card)' if a.thumb_offset == 0 else ' (CUSTOM - not frame 1)'}")
     if a.dry_run:
         print("DRY RUN - nothing published.")
         return
 
-    cid = create_container(uid, tok, a.video_url, caption)
+    cid = create_container(uid, tok, a.video_url, caption, a.thumb_offset)
     print(f"OK container created: {cid}")
     wait_ready(tok, cid)
     if a.no_publish:

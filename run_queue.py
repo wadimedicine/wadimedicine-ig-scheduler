@@ -7,7 +7,8 @@ Each queue/<id>.json looks like:
   "id": "v6",
   "video_asset": "https://github.com/<user>/<repo>/releases/download/videos/v6.mp4",
   "caption": "...full caption + hashtags...",
-  "publish_at_utc": "2026-07-25T18:00:00Z"
+  "publish_at_utc": "2026-07-25T18:00:00Z",
+  "thumb_offset": 0        // OPTIONAL, ms. Omit = 0 = the frame-1 hook card.
 }
 
 On success the queue file is deleted; the workflow commits that deletion so the
@@ -54,8 +55,10 @@ def main():
             os.remove(path)
             posted.append(job["id"] + "(already-live,skipped)")
             continue
+        offset = int(job.get("thumb_offset", 0))
         print(f"PUBLISHING {job['id']} -> {job['video_asset']}")
-        cid = create_container(uid, tok, job["video_asset"], job["caption"])
+        print(f"  cover: {offset} ms{' (frame-1 hook card)' if offset == 0 else ''}")
+        cid = create_container(uid, tok, job["video_asset"], job["caption"], offset)
         wait_ready(tok, cid)
         mid = publish(uid, tok, cid)
         print(f"  posted media {mid}")
