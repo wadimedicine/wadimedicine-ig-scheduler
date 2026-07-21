@@ -99,6 +99,8 @@ def main():
     ap.add_argument("--caption", default="")
     ap.add_argument("--caption-file", help="Read caption as UTF-8 from a file (for non-ASCII).")
     ap.add_argument("--dry-run", action="store_true", help="Validate + print, publish nothing.")
+    ap.add_argument("--no-publish", action="store_true",
+                    help="Create + process the container to prove the pipeline, but do NOT post it.")
     a = ap.parse_args()
 
     caption = a.caption
@@ -117,6 +119,9 @@ def main():
     cid = create_container(uid, tok, a.video_url, caption)
     print(f"OK container created: {cid}")
     wait_ready(tok, cid)
+    if a.no_publish:
+        print("VALIDATED: container processed and ready — skipped publish (--no-publish).")
+        return
     mid = publish(uid, tok, cid)
     print(f"OK PUBLISHED to Instagram: media id {mid}")
     print(f"   https://www.instagram.com/reel/  (media {mid})")
