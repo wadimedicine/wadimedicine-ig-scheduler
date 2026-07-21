@@ -68,15 +68,10 @@ def main():
         if not _due(job):
             print(f"skip {job['id']} (scheduled {job['publish_at_utc']})")
             continue
-        late = _minutes_late(job)
-        if late > MAX_LATE_MINUTES and not allow_late:
-            print(f"!! STALE {job['id']} — due {job['publish_at_utc']}, now {late:.0f} min late "
-                  f"(limit {MAX_LATE_MINUTES}). NOT posting. Left in the queue so nothing is "
-                  f"lost; re-run with ALLOW_LATE=1 to publish it anyway, or delete the file.")
-            stale.append(f"{job['id']}({late:.0f}min)")
-            continue
-        if late > MAX_LATE_MINUTES:
-            print(f"   (ALLOW_LATE set — publishing {job['id']} {late:.0f} min late on purpose)")
+        # Dedup BEFORE staleness, deliberately. These queue entries are a FALLBACK
+        # behind Zernio, so the normal happy path is "Zernio already posted it" —
+        # that must clean up quietly at any age. Only a post that is genuinely
+        # missing from the feed should ever raise the stale alarm.
         dup = already_posted(uid, tok, job["caption"])
         if dup:
             print(f"ALREADY LIVE {job['id']} (media {dup['id']} @ {dup.get('timestamp')}) "
@@ -84,6 +79,17 @@ def main():
             os.remove(path)
             posted.append(job["id"] + "(already-live,skipped)")
             continue
+
+        late = _minutes_late(job)
+        if late > MAX_LATE_MINUTES and not allow_late:
+            print(f"!! STALE {job['id']} — due {job['publish_at_utc']}, now {late:.0f} min late "
+                  f"(limit {MAX_LATE_MINUTES}) and NOT on the feed. NOT posting. Left in the "
+                  f"queue so nothing is lost; re-run with ALLOW_LATE=1 to publish it anyway, "
+                  f"or delete the file.")
+            stale.append(f"{job['id']}({late:.0f}min)")
+            continue
+        if late > MAX_LATE_MINUTES:
+            print(f"   (ALLOW_LATE set — publishing {job['id']} {late:.0f} min late on purpose)")
         offset = int(job.get("thumb_offset", 0))
         print(f"PUBLISHING {job['id']} -> {job['video_asset']}")
         print(f"  cover: {offset} ms{' (frame-1 hook card)' if offset == 0 else ''}")

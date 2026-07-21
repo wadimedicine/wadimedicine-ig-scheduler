@@ -115,14 +115,26 @@ def recent_media(uid, tok, limit=25):
     return r.get("data", [])
 
 
+def _norm(s):
+    """Collapse whitespace + lowercase, so a caption that differs only in line
+    breaks or capitalisation still matches. Instagram itself sometimes returns a
+    caption with slightly different whitespace than what was submitted."""
+    return " ".join((s or "").split()).lower()
+
+
 def already_posted(uid, tok, caption, probe=60):
     """Return the matching live post if this caption is already on the feed, else None.
-    Guards against double-posting even if a stale queue entry lingers."""
-    key = (caption or "").strip()[:probe]
+
+    This is what makes it safe to run a second scheduler against the same video:
+    Zernio publishes at 19:00, and if this cron later fires for the same post it
+    sees it live and skips instead of double-posting. Verified against the live
+    feed on 21 Jul — matched V5 exactly, no false positive on an unseen caption.
+    """
+    key = _norm(caption)[:probe]
     if not key:
         return None
     for m in recent_media(uid, tok):
-        if (m.get("caption") or "").strip().startswith(key):
+        if _norm(m.get("caption")).startswith(key):
             return m
     return None
 
