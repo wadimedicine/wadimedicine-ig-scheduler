@@ -44,7 +44,7 @@ def load_creds():
     tok = os.environ.get("IG_ACCESS_TOKEN")
     if uid and tok:
         return uid, tok
-    with open(CREDS, encoding="utf-8") as f:
+    with open(CREDS, encoding="utf-8-sig") as f:  # utf-8-sig tolerates the BOM PowerShell writes
         c = json.load(f)
     return c["ig_user_id"], c["access_token"]
 
