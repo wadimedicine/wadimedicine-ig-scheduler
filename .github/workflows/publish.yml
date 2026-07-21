@@ -1,0 +1,41 @@
+name: publish-due-reels
+
+# Instagram's API has no native scheduling, so this cron is the timer: it wakes
+# up frequently and publishes any queue/ post whose time has arrived. Runs in
+# GitHub's cloud, so it fires even when Wadi's PC is off. Free (public repo =
+# unlimited Actions minutes). Note: GitHub may delay scheduled runs by a few
+# minutes under load, so a 19:00 post can land a little after.
+on:
+  schedule:
+    - cron: "*/5 * * * *"     # every 5 minutes
+  workflow_dispatch: {}        # also allow a manual run from the Actions tab
+
+permissions:
+  contents: write              # so it can commit the "post sent" queue deletion
+
+concurrency:
+  group: publish-queue         # never run two publishers at once
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Publish due reels
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: python run_queue.py
+      - name: Commit queue changes (mark posts sent)
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "wadimedicine-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add -A
+            git commit -m "sent due reels [skip ci]"
+            git push
+          fi

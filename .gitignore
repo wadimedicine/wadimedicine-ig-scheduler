@@ -1,0 +1,9 @@
+# NEVER commit credentials — they live locally only; the IG token goes into
+# GitHub Actions Secrets instead.
+*credentials*.json
+ig_token*.txt
+token.json
+client_secret*.json
+
+__pycache__/
+*.pyc
