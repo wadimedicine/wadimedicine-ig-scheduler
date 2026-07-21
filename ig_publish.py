@@ -93,6 +93,27 @@ def publish(uid, tok, container_id):
     })["id"]
 
 
+def recent_media(uid, tok, limit=25):
+    """Recent posts already on the account — used for dedup + status checks."""
+    r = _api("GET", f"{uid}/media", {
+        "fields": "id,caption,timestamp,media_type,permalink",
+        "limit": str(limit), "access_token": tok,
+    })
+    return r.get("data", [])
+
+
+def already_posted(uid, tok, caption, probe=60):
+    """Return the matching live post if this caption is already on the feed, else None.
+    Guards against double-posting even if a stale queue entry lingers."""
+    key = (caption or "").strip()[:probe]
+    if not key:
+        return None
+    for m in recent_media(uid, tok):
+        if (m.get("caption") or "").strip().startswith(key):
+            return m
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser(description="Publish a Reel to Instagram.")
     ap.add_argument("--video-url", required=True, help="PUBLIC url of the mp4 (9:16, <=90s).")

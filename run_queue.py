@@ -21,7 +21,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ig_publish import load_creds, create_container, wait_ready, publish  # noqa: E402
+from ig_publish import (  # noqa: E402
+    load_creds, create_container, wait_ready, publish, already_posted,
+)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 QUEUE = os.path.join(HERE, "queue")
@@ -40,10 +42,17 @@ def main():
     uid, tok = load_creds()
     posted = []
     for path in sorted(glob.glob(os.path.join(QUEUE, "*.json"))):
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:
             job = json.load(f)
         if not _due(job):
             print(f"skip {job['id']} (scheduled {job['publish_at_utc']})")
+            continue
+        dup = already_posted(uid, tok, job["caption"])
+        if dup:
+            print(f"ALREADY LIVE {job['id']} (media {dup['id']} @ {dup.get('timestamp')}) "
+                  f"-> skipping + removing from queue, NOT reposting")
+            os.remove(path)
+            posted.append(job["id"] + "(already-live,skipped)")
             continue
         print(f"PUBLISHING {job['id']} -> {job['video_asset']}")
         cid = create_container(uid, tok, job["video_asset"], job["caption"])
