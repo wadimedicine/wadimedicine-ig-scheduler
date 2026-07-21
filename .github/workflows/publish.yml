@@ -8,7 +8,12 @@ name: publish-due-reels
 on:
   schedule:
     - cron: "*/5 * * * *"     # every 5 minutes
-  workflow_dispatch: {}        # also allow a manual run from the Actions tab
+  workflow_dispatch:           # also allow a manual run from the Actions tab
+    inputs:
+      allow_late:
+        description: "Publish even if the slot is >30 min past (deliberate late post)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write              # so it can commit the "post sent" queue deletion
@@ -29,8 +34,13 @@ jobs:
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          ALLOW_LATE: ${{ inputs.allow_late }}
         run: python run_queue.py
+      # `if: always()` so a STALE failure still commits any queue file that WAS
+      # sent in the same run — otherwise the red exit would strand the deletion
+      # and that post would go out a second time on the next run.
       - name: Commit queue changes (mark posts sent)
+        if: always()
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             git config user.name "wadimedicine-bot"
