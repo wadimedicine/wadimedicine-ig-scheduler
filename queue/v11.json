@@ -1,0 +1,7 @@
+{
+  "id": "v11",
+  "video_asset": "https://github.com/wadimedicine/wadimedicine-ig-scheduler/releases/download/videos/v11.mp4",
+  "caption": "Will you be able to come back and work in Ireland after studying medicine abroad? Honestly: an EU medical degree such as Bulgaria's can qualify for EU automatic recognition with the Medical Council, and graduates do come home to Irish hospitals. But no medical degree — Irish or European — guarantees an Irish job. Anyone promising that is selling something. Comment DOCTOR and I'll send you the free 15-minute call link. No pitch, no pressure.",
+  "publish_at_utc": "2026-07-27T18:20:00Z",
+  "note": "FALLBACK ONLY. Primary is Zernio at 19:00 Irish (server-side). This fires at 19:20 only if Zernio did not post; run_queue.py checks the live feed first and deletes this entry if it did."
+}

@@ -1,0 +1,7 @@
+{
+  "id": "v9",
+  "video_asset": "https://github.com/wadimedicine/wadimedicine-ig-scheduler/releases/download/videos/v9.mp4",
+  "caption": "Pleven and Varna are both English-taught medicine routes in Bulgaria, but the timing is completely different. Pleven starts in February and tuition is €9,000 a year. Varna starts in autumn and tuition is €10,000 a year, but its paperwork needs to begin much earlier. Comment DOCTOR and I'll send you the free 15-minute call link. No pitch, no pressure.",
+  "publish_at_utc": "2026-07-25T18:20:00Z",
+  "note": "FALLBACK ONLY. Primary is Zernio at 19:00 Irish (server-side). This fires at 19:20 only if Zernio did not post; run_queue.py checks the live feed first and deletes this entry if it did."
+}
