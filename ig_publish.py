@@ -26,6 +26,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+import caption_match
+
 # Same machine SSL quirk as the YouTube scheduler: delegate cert verification to
 # the OS trust store for local runs. No-op if absent / on Linux (GitHub Actions).
 try:
@@ -115,26 +117,27 @@ def recent_media(uid, tok, limit=25):
     return r.get("data", [])
 
 
-def _norm(s):
-    """Collapse whitespace + lowercase, so a caption that differs only in line
-    breaks or capitalisation still matches. Instagram itself sometimes returns a
-    caption with slightly different whitespace than what was submitted."""
-    return " ".join((s or "").split()).lower()
+_norm = caption_match.norm  # kept as a name: other modules import it from here
 
 
-def already_posted(uid, tok, caption, probe=60):
-    """Return the matching live post if this caption is already on the feed, else None.
+def already_posted(uid, tok, caption):
+    """Return the matching live post if this video is already on the feed, else None.
 
     This is what makes it safe to run a second scheduler against the same video:
     Zernio publishes at 19:00, and if this cron later fires for the same post it
-    sees it live and skips instead of double-posting. Verified against the live
-    feed on 21 Jul — matched V5 exactly, no false positive on an unseen caption.
+    sees it live and skips instead of double-posting.
+
+    ⚠ REWRITTEN 30 Jul 2026 — the old version compared the first 60 characters
+    and REQUIRED the live caption to start with them. On 29 Jul that published
+    V13 to Instagram a second time: the queue was holding the pre-27-Jul
+    body-first wording while Zernio had published the ask-first rewrite, so the
+    same video's two captions did not share an opening and the guard reported
+    "not posted". Matching now ignores word order entirely — see caption_match.
     """
-    key = _norm(caption)[:probe]
-    if not key:
+    if not caption_match.norm(caption):
         return None
     for m in recent_media(uid, tok):
-        if _norm(m.get("caption")).startswith(key):
+        if caption_match.matches(caption, m.get("caption")):
             return m
     return None
 

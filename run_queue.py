@@ -30,7 +30,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ig_publish import (  # noqa: E402
-    load_creds, create_container, wait_ready, publish, already_posted,
+    load_creds, create_container, wait_ready, publish, already_posted, recent_media,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +39,14 @@ QUEUE = os.path.join(HERE, "queue")
 # A post this far past its slot is no longer the post that was approved — the
 # 19:00 anchor is the point. Refuse rather than post it at a random hour.
 MAX_LATE_MINUTES = 30
+
+# Anything already on the feed this close to the slot IS this slot's post.
+# Independent of wording on purpose: the 29 Jul double-post happened because
+# the only guard was a text comparison, and the two copies of the caption had
+# been edited apart. The account posts once a day against a 19:00 anchor and
+# this entry fires 20 minutes behind the primary, so a post inside ±40 minutes
+# of the slot can only be the primary that this entry exists to back up.
+SLOT_WINDOW_MINUTES = 40
 
 
 def _now():
@@ -57,6 +65,28 @@ def _minutes_late(job):
     return (_now() - _scheduled_at(job)).total_seconds() / 60.0
 
 
+def _slot_already_filled(uid, tok, job):
+    """A post already sitting in this job's slot, whatever its caption says.
+
+    The caption check answers "is THIS video up?"; this answers "did anything
+    go out for this slot?". Two independent questions, so a wording change can
+    never silently disarm both at once.
+    """
+    slot = _scheduled_at(job)
+    for m in recent_media(uid, tok):
+        raw = m.get("timestamp")
+        if not raw:
+            continue
+        try:
+            # Instagram returns e.g. 2026-07-29T18:03:02+0000
+            ts = datetime.datetime.strptime(raw, "%Y-%m-%dT%H:%M:%S%z")
+        except ValueError:
+            continue
+        if abs((ts - slot).total_seconds()) <= SLOT_WINDOW_MINUTES * 60:
+            return m
+    return None
+
+
 def main():
     uid, tok = load_creds()
     allow_late = os.environ.get("ALLOW_LATE", "").strip().lower() in ("1", "true", "yes")
@@ -72,7 +102,7 @@ def main():
         # behind Zernio, so the normal happy path is "Zernio already posted it" —
         # that must clean up quietly at any age. Only a post that is genuinely
         # missing from the feed should ever raise the stale alarm.
-        dup = already_posted(uid, tok, job["caption"])
+        dup = already_posted(uid, tok, job["caption"]) or _slot_already_filled(uid, tok, job)
         if dup:
             print(f"ALREADY LIVE {job['id']} (media {dup['id']} @ {dup.get('timestamp')}) "
                   f"-> skipping + removing from queue, NOT reposting")
